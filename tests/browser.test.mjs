@@ -55,7 +55,7 @@ const events = page => page.evaluate(() => Object.keys(JSON.parse(localStorage.g
 // Measures every element's right edge: overflow-x:hidden on <body> would hide clipping from scrollWidth.
 const overflow = page => page.evaluate(() => {
   const vw = document.documentElement.clientWidth;
-  const bad = [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > vw + 1 || r.left < -1) && !e.closest('.demohand, .dragging'); });
+  const bad = [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > vw + 1 || r.left < -1) && !e.closest('.demohand, .dragging, #sky, .burst'); });
   return bad.length ? bad.slice(0, 3).map(e => e.tagName + '.' + e.className + ' ' + Math.round(e.getBoundingClientRect().right)).join(', ') : 0;
 });
 
@@ -253,5 +253,26 @@ test('custom story text is rendered as text, never HTML', async () => {
   }
   assert.match(await page.locator('.caption').innerText(), /<img src=x/);
   assert.equal(await page.evaluate(() => window.__xss), undefined);
+  await ctx.close();
+});
+
+test('five rounds end in a celebration; music toggle works', async () => {
+  const {ctx, page} = await open(devices['iPhone 13']);
+  const toggle = page.locator('.hero .music');
+  const before = await toggle.getAttribute('aria-label');
+  await toggle.click();
+  await page.waitForFunction(b => document.querySelector('.hero .music')?.getAttribute('aria-label') !== b, before);
+  await page.goto(base + '#play-letters');
+  for (let r = 0; r < 5; r++) {
+    await page.waitForSelector('.opt:not(.right)');
+    await solve(page);
+    await page.locator('.nextbtn').click({force:true});
+  }
+  await page.waitForSelector('.celebrate');
+  assert.equal(await page.locator('.stars .art').count(), 3);
+  assert.equal(await overflow(page), 0);
+  await page.getByRole('button', {name:'Play again'}).click();
+  await page.waitForSelector('.opt');
+  assert.deepEqual(page.errors, []);
   await ctx.close();
 });

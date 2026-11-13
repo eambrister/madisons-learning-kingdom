@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const out = process.argv[2] || join(root, '..', 'dist', 'artifact.html');
-const order = ['art', 'engine', 'config', 'cloud', 'app']; // dependencies first
+const order = ['art', 'engine', 'audio', 'config', 'cloud', 'app']; // dependencies first
 
 let bundle = '';
 for (const name of order) {

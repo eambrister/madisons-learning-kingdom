@@ -13,6 +13,9 @@ Python 3 and Node.js 20+ are needed for those commands. Do not open index.html d
 
 ## What works now
 
+- **Look and feel.** Bright, chunky, toy-like design. Each world has its own animated sky (drifting clouds, castle sparkles, twinkling stars). Each subject has its own colour. Pip, an original little dragon, guides every screen: blinks, flaps, cheers on a right answer, tilts its head on a wrong one. Confetti, a striped progress bar and a "You did it!" celebration after five rounds. All motion stops under the phone's Reduce Motion setting.
+- **Music and sounds.** Original short tunes for each world plus sound effects, generated in the browser (`public/audio.js`; no audio files, no services). Music is soft during games and drops almost to silence whenever the voice speaks. Music button on Home; also in Parents.
+- **Deliberately left out:** hearts or lives, daily streaks, coin counters and timers. They add pressure and conflict with the agreed requirements.
 - Ten games, two in each of Reading, Math, Language, Thinking and Nature. Each has three real levels (more choices, harder distinctions, bigger numbers, AB then AAB patterns, 2 to 4 hidden cards).
 - **Picture-first.** Every answer, game card, world and button is an original local SVG illustration (`public/art.js`). No emoji in child play. Game names are shown small for grown-ups; Madison navigates by pictures and spoken prompts.
 - **Spoken demos.** The first time a game opens, a hand shows how to play on a practice round while the instructions are spoken. The hand button replays the demo any time; parents can reset demos.
@@ -58,7 +61,7 @@ This is a functional starter, not a finished educational product.
 ## Validation performed
 
 - `npm test`: 7 engine tests pass. These check that every option has a picture, answers are correct (counts, bigger pile, pattern continuation, letter twins), difficulty grows across levels, adaptation is bounded, events deduplicate, and custom stories are used.
-- `npm run test:browser`: 12 Chromium tests pass. They play a full round of all ten games at iPhone 13 portrait, 320px, iPhone landscape and desktop, checking for no errors, no element past the screen edge, all buttons at least 56px, and exactly one recorded outcome per round. They also cover drag for three games, back/forward/refresh, the parent gate relocking, memory hiding (including accessibility labels), replay cancelling narration, demos with and without reduced motion, storage failure, 150% text at 320px, and story text injection.
+- `npm run test:browser`: 13 Chromium tests pass. They play a full round of all ten games at iPhone 13 portrait, 320px, iPhone landscape and desktop, checking for no errors, no element past the screen edge, all buttons at least 56px, and exactly one recorded outcome per round. They also cover drag for three games, back/forward/refresh, the parent gate relocking, memory hiding (including accessibility labels), replay cancelling narration, demos with and without reduced motion, storage failure, 150% text at 320px, and story text injection.
 - Browser tests need Playwright: `npm install`, then `npx playwright install chromium`, then `npm run test:browser`.
 
 **Not yet verified:** a real iPhone with real Safari speech and touch. Speech in the browser tests is a recorder, not a real voice. Firebase sign-in and sync have not been run against a live project or emulator.
@@ -67,7 +70,9 @@ This is a functional starter, not a finished educational product.
 
 - `public/index.html`, `style.css`: responsive visual shell.
 - `public/engine.js`: game banks, question generation, adaptation, event merging.
-- `public/art.js`: original SVG illustrations and interface icons.
+- `public/art.js`: original SVG illustrations, interface icons and Pip the dragon.
+- `public/audio.js`: synthesized music and sound effects.
+- `tools/build-artifact.mjs`: builds one self-contained page for private claude.ai hosting.
 - `public/app.js`: screens, speech, local persistence, rewards, parent controls.
 - `public/cloud.js`, `config.js`: opt-in Firebase connection and authenticated syncing.
 - `firebase.json`, `firestore.rules`: hosting settings and private owner rules.

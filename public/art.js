@@ -83,4 +83,43 @@ const ui = {
   slot: `<rect x="8" y="8" width="84" height="84" rx="16" fill="none" stroke="#9a948a" stroke-width="5" stroke-dasharray="12 9"/><text x="50" y="66" font-size="44" font-weight="800" text-anchor="middle" fill="#9a948a" font-family="system-ui,sans-serif">?</text>`,
   basket: `<path d="M8 40h84l-10 46H18z" fill="#c49460" stroke="${O}" stroke-width="4" stroke-linejoin="round"/><path d="M14 54h72M18 70h64" stroke="#9c6b3c" stroke-width="4"/>`,
 };
+ui.music = `<circle cx="50" cy="50" r="44" fill="#ffd23f" stroke="${O}" stroke-width="4"/><path d="M42 66V30l26-6v34" fill="none" stroke="${O}" stroke-width="6" stroke-linejoin="round"/><ellipse cx="36" cy="66" rx="9" ry="7" fill="${O}"/><ellipse cx="62" cy="60" rx="9" ry="7" fill="${O}"/>`;
+ui.musicOff = `<circle cx="50" cy="50" r="44" fill="#e6e1d8" stroke="#9a948a" stroke-width="4"/><path d="M42 66V30l26-6v34" fill="none" stroke="#9a948a" stroke-width="6" stroke-linejoin="round"/><ellipse cx="36" cy="66" rx="9" ry="7" fill="#9a948a"/><ellipse cx="62" cy="60" rx="9" ry="7" fill="#9a948a"/><path d="M18 18l64 64" stroke="#e5483d" stroke-width="8" stroke-linecap="round"/>`;
+ui.again = `<circle cx="50" cy="50" r="42" fill="#4fa95a"/><path d="M70 38a24 24 0 1 0 4 20" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/><path d="M76 22v20H56" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`;
 export const icon = (id, label = '') => svg(ui[id], label);
+
+// ---------- Pip, the little dragon guide (original character) ----------
+// Parts carry classes so CSS can blink the eyes, flap the wings and wave the arm.
+const P = '#3b2f5c';
+export function mascot(pose = 'idle') {
+  const happy = pose === 'happy', think = pose === 'think';
+  const mouth = happy
+    ? `<path d="M49 57q11 15 22 0z" fill="#7a2f52" stroke="${P}" stroke-width="2.5" stroke-linejoin="round"/><path d="M54 63q6 4 12 0" fill="#ff8fae"/>`
+    : think ? `<ellipse cx="62" cy="60" rx="3.5" ry="4" fill="#7a2f52"/>`
+    : `<path d="M52 57q8 8 16 0" fill="none" stroke="${P}" stroke-width="3" stroke-linecap="round"/>`;
+  const look = think ? -3 : 0;
+  const armR = happy
+    ? `<g class="m-arm m-arm-r"><ellipse cx="88" cy="66" rx="7" ry="12" fill="#a98be8" stroke="${P}" stroke-width="3" transform="rotate(-35 88 66)"/></g>`
+    : `<g class="m-arm m-arm-r"><ellipse cx="87" cy="80" rx="7" ry="11" fill="#a98be8" stroke="${P}" stroke-width="3" transform="rotate(-30 87 80)"/></g>`;
+  const armL = happy
+    ? `<g class="m-arm m-arm-l"><ellipse cx="32" cy="66" rx="7" ry="12" fill="#a98be8" stroke="${P}" stroke-width="3" transform="rotate(35 32 66)"/></g>`
+    : `<g class="m-arm m-arm-l"><ellipse cx="33" cy="82" rx="7" ry="11" fill="#a98be8" stroke="${P}" stroke-width="3" transform="rotate(25 33 82)"/></g>`;
+  return `<svg class="mascot-svg pose-${pose}" viewBox="0 0 120 120" role="img" aria-label="Pip the little dragon" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<g class="m-tail"><path d="M84 96q24 4 28-16 1-7-5-4-3 13-23 10z" fill="#9b7fe0" stroke="${P}" stroke-width="3" stroke-linejoin="round"/><path d="M107 76l6-8 1 10z" fill="#ffb347" stroke="${P}" stroke-width="2" stroke-linejoin="round"/></g>
+<g class="m-wing m-wing-l"><path d="M36 64q-26-14-30 4 11-2 15 7 5-9 15-5z" fill="#ffb3d1" stroke="${P}" stroke-width="3" stroke-linejoin="round"/></g>
+<g class="m-wing m-wing-r"><path d="M84 64q26-14 30 4-11-2-15 7-5-9-15-5z" fill="#ffb3d1" stroke="${P}" stroke-width="3" stroke-linejoin="round"/></g>
+<path d="M43 23l-5-15 13 9zM77 23l5-15-13 9z" fill="#ffb347" stroke="${P}" stroke-width="3" stroke-linejoin="round"/>
+<ellipse cx="60" cy="86" rx="30" ry="27" fill="#a98be8" stroke="${P}" stroke-width="3"/>
+<ellipse cx="60" cy="91" rx="18" ry="16" fill="#ffe2a0"/><path d="M48 86h24M46 94h28M50 102h20" stroke="#f2c86a" stroke-width="2.5" stroke-linecap="round"/>
+<ellipse cx="46" cy="111" rx="10" ry="6" fill="#9b7fe0" stroke="${P}" stroke-width="3"/><ellipse cx="74" cy="111" rx="10" ry="6" fill="#9b7fe0" stroke="${P}" stroke-width="3"/>
+${armL}
+<circle cx="60" cy="46" r="31" fill="#b89cf2" stroke="${P}" stroke-width="3"/>
+<path d="M40 30q4-8 12-9" fill="none" stroke="#d8c8fb" stroke-width="5" stroke-linecap="round"/>
+<g class="m-eyes"><ellipse cx="48" cy="44" rx="8.5" ry="9.5" fill="#fff" stroke="${P}" stroke-width="2.5"/><ellipse cx="72" cy="44" rx="8.5" ry="9.5" fill="#fff" stroke="${P}" stroke-width="2.5"/>
+<circle cx="${49 + look / 2}" cy="${46 + look}" r="5" fill="${P}"/><circle cx="${73 + look / 2}" cy="${46 + look}" r="5" fill="${P}"/><circle cx="${51 + look / 2}" cy="${44 + look}" r="1.8" fill="#fff"/><circle cx="${75 + look / 2}" cy="${44 + look}" r="1.8" fill="#fff"/></g>
+<circle cx="38" cy="56" r="5" fill="#ff9fbf" opacity=".85"/><circle cx="82" cy="56" r="5" fill="#ff9fbf" opacity=".85"/>
+<circle cx="56" cy="53" r="1.6" fill="${P}"/><circle cx="64" cy="53" r="1.6" fill="${P}"/>
+${mouth}
+${armR}
+</svg>`;
+}

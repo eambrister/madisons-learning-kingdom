@@ -1,5 +1,6 @@
 import {games, subjects, rewards, demos, fresh, levelFor, question, summary, merge} from './engine.js';
-import {picture, icon, has, labelOf, pictureIds} from './art.js';
+import {picture, icon, has, labelOf, pictureIds, mascot} from './art.js';
+import * as audio from './audio.js';
 import * as cloud from './cloud.js';
 
 const app = document.querySelector('#app');
@@ -35,6 +36,7 @@ function persist() {
 }
 state = readLocal();
 world = store.get('madison-world') || 'forest';
+audio.setMusic(state.settings.music !== false);
 
 let noticeTimer;
 function notice(message) {
@@ -45,24 +47,26 @@ function notice(message) {
 }
 
 // ---------- Speech ----------
-// One voice at a time: every call cancels what is playing. Resolves when speech ends, or after a
-// length-based fallback so the app never waits forever on browsers that drop the end event.
+// One voice at a time: every call cancels what is playing. Music ducks while the voice speaks.
+// Resolves when speech ends, or after a length-based fallback for browsers that drop the end event.
 const synth = window.speechSynthesis;
 let speechId = 0;
-function stopSpeech() { speechId++; try { synth?.cancel(); } catch {} }
+function stopSpeech() { speechId++; try { synth?.cancel(); } catch {} speaking(false); }
+function speaking(on) { document.body.classList.toggle('speaking', on); audio.duck(on); }
 function say(text) {
   stopSpeech();
   const id = speechId;
   const fallback = 1200 + text.length * 75;
   if (!synth || !text) return wait(Math.min(fallback, 600));
+  speaking(true);
   return new Promise(resolve => {
-    const done = () => { clearTimeout(t); resolve(); };
+    const done = () => { clearTimeout(t); if (id === speechId) speaking(false); resolve(); };
     const t = setTimeout(done, fallback);
     // Safari can drop an utterance queued in the same tick as cancel().
     setTimeout(() => {
       if (id !== speechId) return done();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US'; u.rate = 0.82; u.pitch = 1.05;
+      u.lang = 'en-US'; u.rate = 0.82; u.pitch = 1.08;
       const v = synth.getVoices().find(v => v.lang === 'en-US' && v.localService) || synth.getVoices().find(v => v.lang === 'en-US');
       if (v) u.voice = v;
       u.onend = done; u.onerror = done;
@@ -72,6 +76,8 @@ function say(text) {
 }
 const wait = ms => new Promise(r => setTimeout(r, ms));
 document.addEventListener('visibilitychange', () => { if (document.hidden) stopSpeech(); });
+document.addEventListener('pointerdown', () => audio.unlock(), true);
+document.addEventListener('keydown', () => audio.unlock(), true);
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- DOM helpers ----------
@@ -94,6 +100,26 @@ function art(markup, cls = 'art') { const s = el('span', undefined, cls); s.inne
 const pic = id => art(picture(id));
 const ico = (id, label) => art(icon(id, label), 'ico');
 function iconButton(id, label, fn, cls = '') { return button(ico(id, ''), fn, 'iconbtn ' + cls, label); }
+function pip(pose = 'idle', cls = '') { const p = art(mascot(pose), 'pip ' + cls); p.setAttribute('aria-hidden', 'true'); return p; }
+function setPose(p, pose, cls) { p.innerHTML = mascot(pose); if (cls) { p.classList.remove(cls); void p.offsetWidth; p.classList.add(cls); } }
+
+// Confetti from an element. Purely decorative; skipped under reduced motion.
+const COLORS = ['#ff7eb6', '#ffad2e', '#3fbdff', '#a07cf0', '#56cc63', '#ffd23f'];
+function burst(from, n = 28) {
+  if (reducedMotion()) return;
+  const r = from.getBoundingClientRect(), layer = el('div', undefined, 'burst');
+  layer.style.left = r.left + r.width / 2 + 'px'; layer.style.top = r.top + r.height / 2 + 'px';
+  for (let i = 0; i < n; i++) {
+    const p = el('i', undefined, i % 3 ? '' : 'round'), a = Math.random() * Math.PI * 2, d = 50 + Math.random() * 110;
+    p.style.setProperty('--x', Math.cos(a) * d + 'px');
+    p.style.setProperty('--y', Math.sin(a) * d - 50 + 'px');
+    p.style.setProperty('--r', Math.random() * 600 - 300 + 'deg');
+    p.style.background = COLORS[i % COLORS.length];
+    layer.append(p);
+  }
+  document.body.append(layer);
+  setTimeout(() => layer.remove(), 1300);
+}
 
 // Render an answer token: picture id, letter tile, number card, rock pile, or plain text.
 function token(t) {
@@ -121,10 +147,33 @@ function tokenLabel(t) {
   return has(s) ? labelOf(s) : s;
 }
 
+// ---------- Worlds and sky ----------
+const WORLDS = [
+  {id:'forest', name:'Animal Forest',   art:'tree',   scene:['tree','fox','rabbit','flower'], hello:'Welcome to the Animal Forest!'},
+  {id:'castle', name:'Magic Castle',    art:'castle', scene:['flower','castle','heart'],      hello:'Welcome to the Magic Castle!'},
+  {id:'space',  name:'Space Adventure', art:'planet', scene:['star','rocket','planet'],       hello:'Welcome to Space Adventure!'},
+];
+let skyWorld = null;
+function paintWorld() {
+  document.body.dataset.world = world;
+  if (skyWorld === world) return;
+  skyWorld = world;
+  const sky = document.querySelector('#sky');
+  sky.replaceChildren();
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  if (world === 'space') {
+    for (let i = 0; i < 28; i++) { const s = el('i', undefined, 'twinkle'); s.style.cssText = `left:${rnd(0, 98)}%;top:${rnd(0, 95)}%;animation-delay:${rnd(-3, 0)}s`; sky.append(s); }
+  } else {
+    for (let i = 0; i < 4; i++) { const c = el('i', undefined, 'cloud'); c.style.cssText = `top:${rnd(4, 80)}%;animation-duration:${rnd(45, 80)}s;animation-delay:${rnd(-80, 0)}s;transform:scale(${rnd(.6, 1.1)})`; sky.append(c); }
+    if (world === 'castle') for (let i = 0; i < 10; i++) { const s = el('i', undefined, 'sparkle'); s.style.cssText = `left:${rnd(0, 96)}%;top:${rnd(0, 95)}%;animation-delay:${rnd(-3, 0)}s`; sky.append(s); }
+  }
+}
+function setWorld(id) { world = id; store.set('madison-world', id); paintWorld(); audio.music(world, 'home'); audio.sounds.whoosh(); }
+
 // ---------- Routing (back button and refresh work) ----------
+// Plain #names only (the artifact viewer passes nothing else): #home, #play-sounds, #treasures, #parents.
 function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
 function route() {
-  // Plain #names only (the artifact viewer passes nothing else): #home, #play-sounds, #treasures, #parents.
   const h = location.hash || '#home';
   const m = h.match(/^#play-(\w+)$/);
   if (m && games.some(g => g.id === m[1])) return startGame(games.find(g => g.id === m[1]));
@@ -133,23 +182,34 @@ function route() {
   return home();
 }
 window.addEventListener('hashchange', route);
-function resetView() { view++; stopSpeech(); app.replaceChildren(); parentOpen = false; window.scrollTo(0, 0); }
+function resetView() {
+  view++; stopSpeech(); app.replaceChildren(); parentOpen = false; window.scrollTo(0, 0);
+  document.querySelectorAll('.demohand').forEach(h => h.remove());
+  app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter');
+  paintWorld();
+}
 
 // ---------- Home ----------
-const WORLDS = [
-  {id:'forest', name:'Animal Forest', art:'tree',   scene:['tree','fox','rabbit','tree'], hello:'Welcome to the Animal Forest!'},
-  {id:'castle', name:'Magic Castle',  art:'castle', scene:['crown','castle','flower'],    hello:'Welcome to the Magic Castle!'},
-  {id:'space',  name:'Space Adventure', art:'planet', scene:['star','rocket','planet'],   hello:'Welcome to Space Adventure!'},
-];
-function setWorld(id) { world = id; store.set('madison-world', id); }
 function home() {
   resetView();
+  audio.music(world, 'home');
   const w = WORLDS.find(x => x.id === world) || WORLDS[0];
-  const hero = el('section', undefined, 'hero world-' + w.id);
+  const hero = el('section', undefined, 'hero');
+  hero.append(el('div', undefined, 'hill'));
   const scene = el('div', undefined, 'scene');
   w.scene.forEach(id => scene.append(pic(id)));
-  scene.append(art(picture(state.equipped && has(state.equipped) ? state.equipped : 'castle'), 'art equipped'));
-  hero.append(scene, iconButton('speaker', 'Say hello', () => say(`Hello, Madison! ${w.hello} Tap a picture to play.`), 'big'));
+  if (has(state.equipped)) scene.append(art(picture(state.equipped), 'art equipped'));
+  hero.append(scene);
+  const row = el('div', undefined, 'hero-row');
+  const friend = pip('idle', 'wave');
+  const hello = button(ico('speaker', ''), () => say(`Hello, Madison! I'm Pip. ${w.hello} Tap a picture to play!`), 'bubble', 'Say hello');
+  hello.append(el('span', 'Hi Madison!'));
+  row.append(friend, hello);
+  hero.append(row);
+  const musicBtn = iconButton(audio.musicOn() ? 'music' : 'musicOff', audio.musicOn() ? 'Music off' : 'Music on', () => {
+    state.settings.music = !audio.musicOn(); audio.setMusic(state.settings.music); persist(); home();
+  }, 'music');
+  hero.append(musicBtn);
   swipe(hero, dir => { const i = WORLDS.indexOf(w); setWorld(WORLDS[(i + dir + WORLDS.length) % WORLDS.length].id); home(); say(WORLDS.find(x => x.id === world).hello); });
   app.append(hero);
 
@@ -162,12 +222,19 @@ function home() {
   app.append(worlds);
 
   const grid = el('div', undefined, 'grid games');
+  let i = 0;
   for (const g of games.filter(g => state.settings.enabled.includes(g.subject))) {
-    const b = button(pic(g.art), () => go('#play-' + g.id), 'card', g.name);
+    const halo = el('span', undefined, 'halo'); halo.append(pic(g.art));
+    const b = button(halo, () => { audio.sounds.pick(); go('#play-' + g.id); }, 'card s-' + g.subject, g.name);
+    b.style.setProperty('--i', i++);
     b.append(el('span', g.name, 'cardname'));
     grid.append(b);
   }
-  grid.append(button(ico('gift', ''), () => go('#treasures'), 'card treasure-card', 'My treasures'));
+  const th = el('span', undefined, 'halo'); th.append(ico('gift', ''));
+  const tb = button(th, () => { audio.sounds.pick(); go('#treasures'); }, 'card s-Treasure treasure-card', 'My treasures');
+  tb.style.setProperty('--i', i);
+  tb.append(el('span', 'Treasures', 'cardname'));
+  grid.append(tb);
   app.append(grid);
   if (grid.children.length === 1) app.append(el('p', 'All subjects are paused. A grown-up can choose activities in Parents.', 'tiny'));
   app.append(el('p', account ? 'Private family progress · Signed in' : 'Saved on this device · Parents can connect a private account', 'tiny'));
@@ -198,9 +265,10 @@ function draggable(source, targets, onDrop) {
     if (!start || e.pointerId !== start.id) return;
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (!moved && Math.hypot(dx, dy) < 10) return;
+    if (!moved) audio.sounds.pick();
     moved = true;
     source.classList.add('dragging');
-    source.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
+    source.style.transform = `translate(${dx}px, ${dy}px) scale(1.08) rotate(${Math.max(-8, Math.min(8, dx / 20))}deg)`;
     for (const t of targets()) t.classList.toggle('over', hit(t, e));
   });
   const end = e => {
@@ -225,24 +293,32 @@ function startGame(g) {
   playRound();
 }
 
-const PRAISE = ['You found it!', 'Yes! Well done!', 'That is right!', 'Great listening!', 'You did it!'];
+const PRAISE = ['You found it!', 'Yes! Well done!', 'That is right!', 'Great listening!', 'You did it!', 'Hooray!'];
 function playRound({demo = false} = {}) {
   resetView();
+  audio.music(world, 'game');
   const token0 = view, g = current;
   const q = question(g.id, demo ? 1 : levelFor(state, g.id), state.settings.stories);
   let missed = false, done = false, phase = q.kind === 'memory' ? 'look' : 'ask';
   let spoken = q.prompt;
 
-  // Toolbar: pictures only. Grown-ups get aria labels.
-  const bar = el('div', undefined, 'toolbar');
-  const replay = iconButton('speaker', 'Hear it again', () => say(spoken), 'replay');
-  bar.append(iconButton('home', 'Home', () => go('#home')), replay, iconButton('hand', 'Show me how', () => { if (!demo) playRound({demo:true}); }));
-  const dots = el('div', undefined, 'rounds'); dots.setAttribute('aria-label', `Round ${Math.min(round + 1, 5)} of 5`);
-  for (let i = 0; i < 5; i++) dots.append(el('i', undefined, i < round ? 'on' : ''));
-  bar.append(dots);
+  // Top bar: pictures only. Grown-ups get aria labels.
+  const bar = el('div', undefined, 'topbar');
+  const progress = el('div', undefined, 'progress');
+  progress.setAttribute('role', 'img'); progress.setAttribute('aria-label', `Round ${Math.min(round + 1, 5)} of 5`);
+  const fill = el('div', undefined, 'fill'); fill.style.width = (round / 5 * 100) + '%';
+  progress.append(fill);
+  bar.append(iconButton('home', 'Home', () => go('#home')), progress, iconButton('hand', 'Show me how', () => { if (!demo) playRound({demo:true}); }));
   app.append(bar);
 
-  const panel = el('section', undefined, 'question' + (demo ? ' demo' : ''));
+  const panel = el('section', undefined, 'question s-' + g.subject + (demo ? ' demo' : ''));
+  const guide = el('div', undefined, 'guide');
+  const friend = pip('idle', 'small');
+  const replay = button(ico('speaker', ''), () => say(spoken), 'bubble replay', 'Hear it again');
+  replay.append(el('span', q.prompt, 'caption')); // for grown-ups; Madison hears it
+  guide.append(friend, replay);
+  panel.append(guide);
+
   const scene = el('div', undefined, 'scene');
   let slot = null, dragItem = null;
   for (const s of q.scene) {
@@ -255,10 +331,8 @@ function playRound({demo = false} = {}) {
   const target = el('div', undefined, 'target'); // memory: who to find
   scene.append(target);
   panel.append(scene);
-  const caption = el('p', q.prompt, 'caption'); // for grown-ups; Madison hears it
-  panel.append(caption);
 
-  const choices = el('div', undefined, 'answers n' + q.options.length + (q.options.some(o => String(o).startsWith('P:')) ? ' wide' : ''));
+  const choices = el('div', undefined, 'answers n' + q.options.length);
   const buttons = q.options.map(o => {
     const b = button(token(o), () => { if (b.dataset.dragged) return; choose(o, b); }, 'opt', tokenLabel(o));
     b.dataset.value = o;
@@ -270,7 +344,6 @@ function playRound({demo = false} = {}) {
   panel.append(feedback);
   app.append(panel);
 
-  // Drag wiring (optional; tapping an option does the same thing).
   if (!demo && q.kind === 'drag') {
     if (dragItem) draggable(dragItem, () => buttons.filter(b => !b.disabled), b => choose(b.dataset.value, b));
     if (q.dropSlot && slot) buttons.forEach(b => draggable(b, () => [slot], () => choose(b.dataset.value, b)));
@@ -281,7 +354,8 @@ function playRound({demo = false} = {}) {
     if (value !== q.answer) {
       missed = true;
       b.disabled = true; b.classList.add('wrong');
-      feedback.replaceChildren();
+      audio.sounds.wrong();
+      setPose(friend, 'think');
       say('Hmm. Try another one.');
       return;
     }
@@ -295,16 +369,18 @@ function playRound({demo = false} = {}) {
     state.events[id] = {id, game:g.id, firstTry:!missed, at:Date.now()};
     round++;
     persist();
-    const total = Object.keys(state.events).length;
-    const earned = total % 5 === 0 && total / 5 <= rewards.length;
+    audio.sounds.correct();
+    burst(b);
+    setPose(friend, 'happy', 'cheer');
+    fill.style.width = (round / 5 * 100) + '%';
     feedback.replaceChildren(ico('check', ''));
     const praise = PRAISE[Math.floor(Math.random() * PRAISE.length)];
     const finished = round >= 5;
     const nextBtn = finished
-      ? button(pic('star'), () => { round = 0; go('#treasures'); }, 'nextbtn', 'All done! See treasures')
+      ? button(pic('star'), () => celebrate(), 'nextbtn', 'All done! Celebrate')
       : iconButton('next', 'Play again', () => playRound(), 'nextbtn');
     panel.append(nextBtn);
-    spoken = `${praise} ${earned ? 'You found a new treasure!' : ''} ${finished ? 'All done! Tap the star.' : 'Tap the arrow to play again.'}`;
+    spoken = `${praise} ${finished ? 'All done! Tap the star.' : 'Tap the arrow to play again.'}`;
     say(spoken);
     nextBtn.focus({preventScroll:true});
   }
@@ -315,10 +391,12 @@ function playRound({demo = false} = {}) {
     spoken = 'Look! ' + q.options.map(labelOf).join(', ') + '.';
     await Promise.all([say(spoken), wait(q.showMs)]);
     if (token0 !== view) return;
+    audio.sounds.whoosh();
     buttons.forEach(b => { b.replaceChildren(ico('hidden', '')); b.disabled = false; b.setAttribute('aria-label', 'Hiding place'); b.classList.add('covered'); });
     target.replaceChildren(pic(q.answer));
     phase = 'ask';
     spoken = `Now they are hiding. Where is the ${labelOf(q.answer)}?`;
+    replay.querySelector('.caption').textContent = spoken;
     say(spoken);
   }
 
@@ -338,21 +416,20 @@ function playRound({demo = false} = {}) {
     }
     if (token0 !== view) return;
     const answerBtn = buttons.find(b => b.dataset.value === q.answer);
-    const from = (dragItem || panel.querySelector('.scene')).getBoundingClientRect();
+    const from = (dragItem || scene).getBoundingClientRect();
     const hand = art(icon('hand', ''), 'demohand');
     document.body.append(hand);
     const to = answerBtn.getBoundingClientRect();
     const place = r => { hand.style.left = (r.left + r.width / 2 + scrollX - 10) + 'px'; hand.style.top = (r.top + r.height / 2 + scrollY) + 'px'; };
     place(reducedMotion() ? to : from);
-    if (dragItem && !reducedMotion()) {
-      dragItem.style.transition = 'transform 1.2s ease-in-out';
-    }
+    if (dragItem && !reducedMotion()) dragItem.style.transition = 'transform 1.2s ease-in-out';
     await wait(80);
     place(to);
     if (dragItem && !reducedMotion()) dragItem.style.transform = `translate(${to.left - from.left}px, ${to.top - from.top}px)`;
     await wait(reducedMotion() ? 300 : 1300);
     if (token0 !== view) { hand.remove(); return; }
     answerBtn.classList.add('right');
+    audio.sounds.correct();
     if (q.kind === 'memory') answerBtn.replaceChildren(token(q.answer));
     if (slot) slot.replaceChildren(token(q.answer));
     await say('Like that! Now you try.');
@@ -360,22 +437,44 @@ function playRound({demo = false} = {}) {
     if (token0 !== view) return;
     playRound();
   }
-  // Remove a stray demo hand when the screen changes.
-  document.querySelectorAll('.demohand').forEach(h => h.remove());
 
   if (demo) return void runDemo();
   if (q.kind === 'memory') { buttons.forEach((b, i) => b.replaceChildren(token(q.options[i]))); runMemory(); }
   else say(q.prompt);
-  // iOS Safari speaks only after a tap. After a refresh straight into a game, pulse the speaker.
+  // iOS Safari speaks only after a tap. After a refresh straight into a game, pulse the speaker bubble.
   if (navigator.userActivation && !navigator.userActivation.hasBeenActive) replay.classList.add('pulse');
+}
+
+// ---------- Celebration after five rounds ----------
+function celebrate() {
+  resetView();
+  audio.music(world, 'home');
+  const total = Object.keys(state.events).length;
+  const earned = Math.min(rewards.length, Math.floor(total / 5));
+  const box = el('section', undefined, 'celebrate');
+  const stars = el('div', undefined, 'stars');
+  for (let i = 0; i < 3; i++) stars.append(pic('star'));
+  const friend = pip('happy');
+  box.append(stars, el('h2', 'You did it!'), friend);
+  const actions = el('div', undefined, 'actions');
+  actions.append(
+    iconButton('again', 'Play again', () => { round = 0; playRound(); }),
+    iconButton('gift', 'My treasures', () => go('#treasures')),
+    iconButton('home', 'Home', () => go('#home')));
+  box.append(actions);
+  app.append(box);
+  audio.sounds.fanfare();
+  [0, 250, 500].forEach((ms, i) => setTimeout(() => { audio.sounds.star(); if (stars.children[i]) burst(stars.children[i], 14); }, ms + 150));
+  say(`You did it, Madison! Hooray! ${earned ? 'You have a treasure waiting. Tap the present!' : 'Tap the arrow to play again.'}`);
 }
 
 // ---------- Treasures ----------
 function treasures() {
   resetView();
+  audio.music(world, 'home');
   const earned = Math.min(rewards.length, Math.floor(Object.keys(state.events).length / 5));
   app.append(el('h2', 'Madison’s treasures', 'title'));
-  const shown = el('div', undefined, 'equipped-big');
+  const shown = el('div', undefined, 'podium');
   shown.append(has(state.equipped) ? pic(state.equipped) : el('span', String(state.equipped || ''), 'textchoice'));
   app.append(shown);
   const grid = el('div', undefined, 'grid rewards');
@@ -385,8 +484,10 @@ function treasures() {
       if (!open) return;
       state.equipped = r; persist();
       shown.replaceChildren(pic(r));
+      audio.sounds.star(); burst(shown, 20);
       say(`Your ${labelOf(r)} is in your kingdom now!`);
     }, 'reward' + (open ? '' : ' locked'), open ? labelOf(r) : 'Locked treasure');
+    b.style.setProperty('--i', i);
     b.disabled = !open;
     grid.append(b);
   });
@@ -397,9 +498,10 @@ function treasures() {
 // ---------- Parent gate and area ----------
 function gate() {
   resetView();
+  audio.music(world, 'game');
   const p = el('section', undefined, 'panel');
   p.append(el('h2', 'Grown-ups only'), el('p', account ? 'Enter your account password to open settings.' : 'Create or enter this device’s parent password (8+ characters). It is a child gate, not account security.'));
-  const input = el('input'); input.type = 'password'; input.autocomplete = 'current-password';
+  const input = el('input'); input.type = 'password'; input.autocomplete = 'current-password'; input.id = 'parent-password';
   const label = el('label', account ? 'Account password' : 'Parent password'); label.append(input);
   const open = async () => {
     try {
@@ -436,7 +538,7 @@ function pictureSelect(labelText) {
 function parentArea() {
   resetView();
   parentOpen = true;
-  app.append(el('h2', 'Parent garden'), el('p', 'Practice progress helps you choose activities. It is not a developmental assessment.', 'tiny'));
+  app.append(el('h2', 'Parent garden', 'parent-title'), el('p', 'Practice progress helps you choose activities. It is not a developmental assessment.', 'tiny'));
 
   const accountPanel = el('section', undefined, 'panel');
   accountPanel.append(el('h3', 'Private family account'));
@@ -458,6 +560,10 @@ function parentArea() {
   const minutes = field('Gentle daily reminder after this many minutes (0 = off)', 'number', state.settings.minutes);
   minutes.input.min = 0; minutes.input.max = 120;
   settings.append(minutes.label);
+  const musicLabel = el('label', undefined, 'check'), musicBox = el('input');
+  musicBox.type = 'checkbox'; musicBox.checked = state.settings.music !== false;
+  musicLabel.append(musicBox, document.createTextNode('Background music (it gets quiet whenever the voice speaks)'));
+  settings.append(musicLabel);
   const enabled = subjects.map(s => { const label = el('label', undefined, 'check'), c = el('input'); c.type = 'checkbox'; c.checked = state.settings.enabled.includes(s); label.append(c, document.createTextNode(s)); settings.append(label); return [s, c]; });
   const selects = {};
   for (const g of games) {
@@ -469,6 +575,7 @@ function parentArea() {
   settings.append(button('Show the “how to play” demos again', () => { games.forEach(g => { try { localStorage.removeItem(demoKey(g.id)); } catch {} }); notice('Demos will play the next time each game opens.'); }));
   settings.append(button('Save learning controls', () => {
     state.settings.minutes = Math.max(0, Math.min(120, Math.round(Number(minutes.input.value)) || 0));
+    state.settings.music = musicBox.checked; audio.setMusic(musicBox.checked);
     state.settings.enabled = enabled.filter(x => x[1].checked).map(x => x[0]);
     state.settings.levels = Object.fromEntries(Object.entries(selects).map(([k, v]) => [k, v.value]));
     persist(); notice('Learning controls saved.');
@@ -511,9 +618,9 @@ function parentArea() {
 }
 
 // ---------- Header ----------
-document.querySelector('#home').addEventListener('click', e => { e.preventDefault(); go('#home'); });
+document.querySelector('#logo').addEventListener('click', e => { e.preventDefault(); go('#home'); });
 document.querySelector('#parent').addEventListener('click', () => go('#parents'));
-document.querySelector('#home').replaceChildren(art(picture('castle')));
+document.querySelector('#logo').replaceChildren(art(picture('castle')));
 
 // ---------- Gentle daily reminder: device-local, never blocks play ----------
 let reminderDay = null;

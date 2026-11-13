@@ -41,7 +41,7 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const take = (a, n) => shuffle(a).slice(0, Math.max(0, n));
 
 export function fresh() {
-  return {version:1, events:{}, settings:{minutes:15, enabled:[...subjects], levels:{}, stories:[]}, equipped:'castle'};
+  return {version:1, events:{}, settings:{minutes:15, enabled:[...subjects], levels:{}, stories:[], music:true}, equipped:'castle'};
 }
 export function summary(events, id) {
   return Object.values(events).filter(e => e.game === id)
