@@ -11,17 +11,20 @@ A phone-first educational web-app starter for Madison, age two. Prepared for Edd
 
 Python 3 and Node.js 20+ are needed for those commands. Do not open index.html directly: JavaScript modules require an HTTP server.
 
-## What works in this starter
+## What works now
 
-- Ten selectable games, two in each of Reading, Math, Language, Thinking and Nature.
-- Forest, castle and space home-screen themes; all games remain available in every theme.
-- Tap-based choices, spoken US-English prompts through browser speech synthesis, and replay controls.
-- First-try outcomes recorded separately from eventual completion. Every five completed rounds per game adjusts its level: four or five first-try successes raises it; zero to two lowers it; three holds it. Levels stay within 1–3.
-- Per-game parent overrides, subject visibility, a daily reminder, practice summaries, custom story creation/removal.
-- One treasure per five completed rounds, up to twelve. Choose an earned treasure as a decoration.
-- Password-gated parent area. Firebase account reauthentication when signed in; local password hash for demo mode only.
-- Local persistence, optional email/password Firebase accounts, and explicit/automatic cloud saves. A new account starts separately from demo progress.
-- No microphone capture, advertising, analytics, chat, purchases, or external content links in child play.
+- Ten games, two in each of Reading, Math, Language, Thinking and Nature. Each has three real levels (more choices, harder distinctions, bigger numbers, AB then AAB patterns, 2 to 4 hidden cards).
+- **Picture-first.** Every answer, game card, world and button is an original local SVG illustration (`public/art.js`). No emoji in child play. Game names are shown small for grown-ups; Madison navigates by pictures and spoken prompts.
+- **Spoken demos.** The first time a game opens, a hand shows how to play on a practice round while the instructions are spoken. The hand button replays the demo any time; parents can reset demos.
+- **Drag or tap.** Letter Twins and Animal Homes: slide the big picture onto the answer. Magic Patterns: slide an answer into the empty spot. Tapping always works too. Built on Pointer Events (works with touch, mouse and pen). Swipe the world banner on Home to change world; the three world buttons do the same.
+- **Hidden Friends** shows the friends, hides them automatically, then shows who to find. Leaving or starting a new round cancels pending timers.
+- **Back, refresh and the parent gate.** Each screen has its own address, so the phone's back button and refresh behave. The parent area always asks for the password again after you leave it.
+- **Audio.** Replay stops the current narration before speaking. Leaving a screen or switching apps stops speech. On iPhone, speech needs a first tap; after a refresh straight into a game the speaker button pulses.
+- **Saving.** Progress saves on the device. If the browser refuses to save (private mode, full storage), play continues and a grown-up message appears.
+- Phone portrait, 320px wide screens, landscape (side-by-side layout), large text and reduced motion are handled.
+- One first-try outcome is recorded per round; adaptation is unchanged (every 5 rounds per game, 4 to 5 first-try successes raises the level, 0 to 2 lowers it, levels stay 1 to 3). Parents can lock a level.
+- Parent area: account, reminder minutes, subjects, levels, progress table, story shelf (stories are shown as text, never HTML; pictures chosen from the illustration list).
+- No microphone, advertising, analytics, chat, purchases or outside links in child play.
 
 ## Connect a separate Firebase project
 
@@ -41,10 +44,9 @@ Firebase references: https://firebase.google.com/docs/web/setup and https://fire
 
 This is a functional starter, not a finished educational product.
 
-- Choice inputs are tapping only. Drag/drop and swipe activities remain to implement with accessible tap alternatives; they were discussed as abilities, not required to start every game.
 - Story, animal-home and nature question banks are small. Some games currently change choice counts or number ranges with level; others reuse their question bank at every level. Expand all three levels meaningfully before describing the full curriculum as adaptive.
 - Sound Safari’s synthesized “mmm/sss/buh/puh” prompts are provisional. Browser TTS is not reliable phonics instruction. Replace with reviewed recordings of clean phonemes, avoiding added “uh”; make prompts match the chosen teaching method.
-- US voice availability, audio behavior, pronunciation, emoji rendering and touch targets MUST be checked on Madison’s actual iPhone. iOS audio generally needs an initial user tap. Replay is available. No audio recordings are bundled.
+- US voice availability, audio behavior, pronunciation and touch MUST be checked on Madison’s actual iPhone. iOS audio generally needs an initial user tap. Replay is available. No audio recordings are bundled.
 - World selection changes the home theme, not game mechanics. Rewards are a starter treasure shelf and selected decoration. Full character outfits, castle furnishing placement and an animal/planet discovery book are pending.
 - Browser speech recognition is deliberately OFF. A future adapter may expose availability, start/cancel, transcript and uncertain results; do not enable it or request microphone access without a new parent decision. Hosting Permissions-Policy blocks microphones today.
 - The local parent password is a child gate, not server authentication. Someone controlling the browser can clear or bypass local state. Firebase Auth and Firestore rules protect cloud data. There is no password recovery UI yet; use the Firebase console/provider recovery flow until implemented.
@@ -55,16 +57,20 @@ This is a functional starter, not a finished educational product.
 
 ## Validation performed
 
-`npm test`: 3 tests passed, including 3,000 generated question checks across ten games and three levels, bounded difficulty changes and event deduplication.
+- `npm test`: 7 engine tests pass. These check that every option has a picture, answers are correct (counts, bigger pile, pattern continuation, letter twins), difficulty grows across levels, adaptation is bounded, events deduplicate, and custom stories are used.
+- `npm run test:browser`: 12 Chromium tests pass. They play a full round of all ten games at iPhone 13 portrait, 320px, iPhone landscape and desktop, checking for no errors, no element past the screen edge, all buttons at least 56px, and exactly one recorded outcome per round. They also cover drag for three games, back/forward/refresh, the parent gate relocking, memory hiding (including accessibility labels), replay cancelling narration, demos with and without reduced motion, storage failure, 150% text at 320px, and story text injection.
+- Browser tests need Playwright: `npm install`, then `npx playwright install chromium`, then `npm run test:browser`.
 
-Browser smoke testing was attempted with Playwright. Its bundled browser was absent, and system Chromium could not start because this environment denied its socket operation. Consequently no visual, touch or audio verification is claimed. Claude must run browser checks and test iPhone Safari before release. Firebase emulator tests are also pending.
+**Not yet verified:** a real iPhone with real Safari speech and touch. Speech in the browser tests is a recorder, not a real voice. Firebase sign-in and sync have not been run against a live project or emulator.
 
 ## Project map
 
 - `public/index.html`, `style.css`: responsive visual shell.
 - `public/engine.js`: game banks, question generation, adaptation, event merging.
+- `public/art.js`: original SVG illustrations and interface icons.
 - `public/app.js`: screens, speech, local persistence, rewards, parent controls.
 - `public/cloud.js`, `config.js`: opt-in Firebase connection and authenticated syncing.
 - `firebase.json`, `firestore.rules`: hosting settings and private owner rules.
 - `tests/engine.test.js`: learning-engine tests.
+- `tests/browser.test.mjs`: Chromium smoke tests across phone sizes.
 - `CLAUDE_HANDOFF.md`: requirements and concrete continuation instructions.
