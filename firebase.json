@@ -1,0 +1,1 @@
+{"hosting":{"public":"public","ignore":["firebase.json","**/.*","**/node_modules/**"],"headers":[{"source":"**","headers":[{"key":"Permissions-Policy","value":"microphone=(), camera=(), geolocation=()"},{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"no-referrer"}]}]},"firestore":{"rules":"firestore.rules"}}
