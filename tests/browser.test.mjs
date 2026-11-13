@@ -115,22 +115,22 @@ test('drag works for Letter Twins, Animal Homes and Magic Patterns', async () =>
     await page.mouse.up();
   };
   // Letters: drag the big letter onto its twin.
-  await page.goto(base + '#/play/letters'); await page.waitForSelector('.dragitem');
+  await page.goto(base + '#play-letters'); await page.waitForSelector('.dragitem');
   const letter = await page.locator('.dragitem').innerText();
   await drag(page.locator('.dragitem'), page.locator(`.opt[data-value="L:${letter}"]`));
   await page.waitForSelector('.nextbtn');
   // Habitat: drag the animal onto its home.
   const homes = {fish:'water', bird:'nest', bee:'hive', dog:'doghouse'};
-  await page.goto(base + '#/play/habitat'); await page.waitForSelector('.dragitem');
+  await page.goto(base + '#play-habitat'); await page.waitForSelector('.dragitem');
   const animal = await page.locator('.dragitem svg').getAttribute('aria-label');
   await drag(page.locator('.dragitem'), page.locator(`.opt[data-value="${homes[animal]}"]`));
   await page.waitForSelector('.nextbtn');
   // Pattern: drag options into the empty slot until one fits; wrong drops are rejected.
-  await page.goto(base + '#/play/pattern'); await page.waitForSelector('.slot');
+  await page.goto(base + '#play-pattern'); await page.waitForSelector('.slot');
   for (let i = 0; i < 4 && !(await page.locator('.nextbtn').count()); i++) await drag(page.locator('.opt:not([disabled])').first(), page.locator('.slot'));
   await page.waitForSelector('.nextbtn');
   // A short drag that misses every target must not answer.
-  await page.goto(base + '#/play/letters'); await page.waitForSelector('.dragitem');
+  await page.goto(base + '#play-letters'); await page.waitForSelector('.dragitem');
   const before = await events(page);
   const box = await page.locator('.dragitem').boundingBox();
   await page.mouse.move(box.x + 10, box.y + 10); await page.mouse.down(); await page.mouse.move(box.x + 60, box.y - 40, {steps:4}); await page.mouse.up();
@@ -146,7 +146,7 @@ test('back, refresh, parent gate relock', async () => {
   await page.goBack(); await page.waitForSelector('.card');
   await page.goForward(); await page.waitForSelector('.opt');
   await page.reload(); await page.waitForSelector('.opt');
-  assert.match(page.url(), /#\/play\/sounds$/);
+  assert.match(page.url(), /#play-sounds$/);
   await page.getByRole('button', {name:'Parents'}).click();
   await page.fill('input[type=password]', 'parent-pass-1');
   await page.getByRole('button', {name:'Open parent area'}).click();
@@ -164,10 +164,10 @@ test('back, refresh, parent gate relock', async () => {
 
 test('memory hides answers and a new round cancels stale timers', async () => {
   const {ctx, page} = await open(devices['iPhone 13']);
-  await page.goto(base + '#/play/memory'); await page.waitForSelector('.opt');
+  await page.goto(base + '#play-memory'); await page.waitForSelector('.opt');
   assert.ok(await page.locator('.opt').first().isDisabled(), 'cannot tap while friends are showing');
   await page.getByRole('button', {name:'Home'}).click();
-  await page.goto(base + '#/play/memory'); await page.waitForSelector('.opt.covered', {timeout:8000});
+  await page.goto(base + '#play-memory'); await page.waitForSelector('.opt.covered', {timeout:8000});
   const labels = await page.$$eval('.opt', bs => bs.map(b => b.getAttribute('aria-label')));
   assert.ok(labels.every(l => l === 'Hiding place'), 'answers hidden from accessibility labels too');
   assert.equal(await page.locator('.opt svg[aria-label]:not([aria-label=""])').count(), 0, 'no picture labels leak');
@@ -227,7 +227,7 @@ test('large text stays inside a 320px screen', async () => {
   assert.equal(await overflow(page), 0, 'home');
   await page.screenshot({path:'test-results/large-text-home.png', fullPage:true});
   for (const id of ['count', 'more', 'memory', 'pattern']) {
-    await page.goto(base + '#/play/' + id); await page.waitForSelector('.opt');
+    await page.goto(base + '#play-' + id); await page.waitForSelector('.opt');
     await page.addStyleTag({content:':root{font-size:150% !important}'});
     assert.equal(await overflow(page), 0, id);
   }
@@ -236,7 +236,7 @@ test('large text stays inside a 320px screen', async () => {
 
 test('custom story text is rendered as text, never HTML', async () => {
   const {ctx, page} = await open(devices['iPhone 13']);
-  await page.goto(base + '#/parent');
+  await page.goto(base + '#parents');
   await page.fill('input[type=password]', 'parent-pass-1');
   await page.getByRole('button', {name:'Open parent area'}).click();
   await page.getByLabel('Story (read aloud)').fill('<img src=x onerror="window.__xss=1">A frog hopped.');
@@ -247,8 +247,8 @@ test('custom story text is rendered as text, never HTML', async () => {
   await page.waitForSelector('text=Story added.');
   await page.getByRole('button', {name:'Lock and return to Madison'}).click();
   for (let i = 0; i < 25; i++) {
-    await page.goto(base + '#/'); await page.waitForSelector('.card');
-    await page.goto(base + '#/play/story'); await page.waitForSelector('.caption');
+    await page.goto(base + '#home'); await page.waitForSelector('.card');
+    await page.goto(base + '#play-story'); await page.waitForSelector('.caption');
     if ((await page.locator('.caption').innerText()).includes('frog hopped')) break;
   }
   assert.match(await page.locator('.caption').innerText(), /<img src=x/);

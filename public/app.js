@@ -124,11 +124,12 @@ function tokenLabel(t) {
 // ---------- Routing (back button and refresh work) ----------
 function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
 function route() {
-  const h = location.hash || '#/';
-  const m = h.match(/^#\/play\/(\w+)$/);
+  // Plain #names only (the artifact viewer passes nothing else): #home, #play-sounds, #treasures, #parents.
+  const h = location.hash || '#home';
+  const m = h.match(/^#play-(\w+)$/);
   if (m && games.some(g => g.id === m[1])) return startGame(games.find(g => g.id === m[1]));
-  if (h === '#/treasures') return treasures();
-  if (h === '#/parent') return gate();
+  if (h === '#treasures') return treasures();
+  if (h === '#parents') return gate();
   return home();
 }
 window.addEventListener('hashchange', route);
@@ -162,11 +163,11 @@ function home() {
 
   const grid = el('div', undefined, 'grid games');
   for (const g of games.filter(g => state.settings.enabled.includes(g.subject))) {
-    const b = button(pic(g.art), () => go('#/play/' + g.id), 'card', g.name);
+    const b = button(pic(g.art), () => go('#play-' + g.id), 'card', g.name);
     b.append(el('span', g.name, 'cardname'));
     grid.append(b);
   }
-  grid.append(button(ico('gift', ''), () => go('#/treasures'), 'card treasure-card', 'My treasures'));
+  grid.append(button(ico('gift', ''), () => go('#treasures'), 'card treasure-card', 'My treasures'));
   app.append(grid);
   if (grid.children.length === 1) app.append(el('p', 'All subjects are paused. A grown-up can choose activities in Parents.', 'tiny'));
   app.append(el('p', account ? 'Private family progress · Signed in' : 'Saved on this device · Parents can connect a private account', 'tiny'));
@@ -235,7 +236,7 @@ function playRound({demo = false} = {}) {
   // Toolbar: pictures only. Grown-ups get aria labels.
   const bar = el('div', undefined, 'toolbar');
   const replay = iconButton('speaker', 'Hear it again', () => say(spoken), 'replay');
-  bar.append(iconButton('home', 'Home', () => go('#/')), replay, iconButton('hand', 'Show me how', () => { if (!demo) playRound({demo:true}); }));
+  bar.append(iconButton('home', 'Home', () => go('#home')), replay, iconButton('hand', 'Show me how', () => { if (!demo) playRound({demo:true}); }));
   const dots = el('div', undefined, 'rounds'); dots.setAttribute('aria-label', `Round ${Math.min(round + 1, 5)} of 5`);
   for (let i = 0; i < 5; i++) dots.append(el('i', undefined, i < round ? 'on' : ''));
   bar.append(dots);
@@ -300,7 +301,7 @@ function playRound({demo = false} = {}) {
     const praise = PRAISE[Math.floor(Math.random() * PRAISE.length)];
     const finished = round >= 5;
     const nextBtn = finished
-      ? button(pic('star'), () => { round = 0; go('#/treasures'); }, 'nextbtn', 'All done! See treasures')
+      ? button(pic('star'), () => { round = 0; go('#treasures'); }, 'nextbtn', 'All done! See treasures')
       : iconButton('next', 'Play again', () => playRound(), 'nextbtn');
     panel.append(nextBtn);
     spoken = `${praise} ${earned ? 'You found a new treasure!' : ''} ${finished ? 'All done! Tap the star.' : 'Tap the arrow to play again.'}`;
@@ -389,7 +390,7 @@ function treasures() {
     b.disabled = !open;
     grid.append(b);
   });
-  app.append(grid, iconButton('home', 'Home', () => go('#/'), 'big'));
+  app.append(grid, iconButton('home', 'Home', () => go('#home'), 'big'));
   say(earned ? 'Your treasures! Tap one to put it in your kingdom.' : 'Play games to find treasures!');
 }
 
@@ -415,7 +416,7 @@ function gate() {
     } catch (e) { notice(e.message); }
   };
   input.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
-  p.append(label, button('Open parent area', open, 'primary'), button('Back', () => go('#/')));
+  p.append(label, button('Open parent area', open, 'primary'), button('Back', () => go('#home')));
   app.append(p);
   input.focus();
 }
@@ -442,7 +443,7 @@ function parentArea() {
   if (account) {
     accountPanel.append(el('p', account.email),
       button('Sync now', async () => { try { await cloud.save(state); const d = await cloud.load(); if (d) state = merge(state, d); persist(); notice('Progress synced.'); parentArea(); } catch { notice('Sync failed. Check your connection.'); } }),
-      button('Sign out', async () => { try { await cloud.logout(); go('#/'); } catch { notice('Sign out failed. Check your connection.'); } }));
+      button('Sign out', async () => { try { await cloud.logout(); go('#home'); } catch { notice('Sign out failed. Check your connection.'); } }));
   } else {
     accountPanel.append(el('p', configured ? 'Sign in to sync across devices. Progress saved on this device stays separate.' : 'Firebase isn’t configured yet. Play works on this device; follow README.md to connect your project.'));
     const email = field('Parent email', 'email', ''), password = field('Account password', 'password', '');
@@ -506,12 +507,12 @@ function parentArea() {
   state.settings.stories.forEach((s, i) => content.append(button('Remove: ' + String(s.text).slice(0, 45), () => { state.settings.stories.splice(i, 1); persist(); parentArea(); })));
   app.append(content,
     el('p', 'Microphone: off. This app never asks for microphone access.', 'tiny'),
-    button('Lock and return to Madison', () => go('#/'), 'primary'));
+    button('Lock and return to Madison', () => go('#home'), 'primary'));
 }
 
 // ---------- Header ----------
-document.querySelector('#home').addEventListener('click', e => { e.preventDefault(); go('#/'); });
-document.querySelector('#parent').addEventListener('click', () => go('#/parent'));
+document.querySelector('#home').addEventListener('click', e => { e.preventDefault(); go('#home'); });
+document.querySelector('#parent').addEventListener('click', () => go('#parents'));
 document.querySelector('#home').replaceChildren(art(picture('castle')));
 
 // ---------- Gentle daily reminder: device-local, never blocks play ----------
@@ -535,7 +536,7 @@ cloud.connect(async u => {
     try { const remote = await cloud.load(); if (remote) state = merge(state, remote); store.set(localKey(), JSON.stringify(state)); }
     catch { notice('Cloud unavailable. This device’s saved progress is ready.'); }
   }
-  if (!location.hash.startsWith('#/play')) route();
+  if (!location.hash.startsWith('#play-')) route();
 }).then(ok => { configured = ok; }).catch(() => notice('Cloud setup is unavailable. Play on this device is ready.'));
 
 route();
